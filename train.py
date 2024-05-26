@@ -1,7 +1,9 @@
+import os
 import torch
 import torch.nn as nn
 from torch.utils.data import Dataset, DataLoader
 from torchvision.models import resnet50
+
 
 class XRayDataset(Dataset):
     def __init__(self, features, labels):
@@ -15,29 +17,36 @@ class XRayDataset(Dataset):
         return self.features[index], self.labels[index]
     
 
-def main():
-    pathology = 'Enlarged Cardiomediastinum'
-    orientation = 'Frontal'
+def create_folder(folder):
+    if not os.path.exists(f'{folder}'):
+        os.makedirs(folder)
+        print(f"New directory {folder} is created!")
+    return folder
+
+
+def train(pathology, orientation, batch_size, learning_rate, momentum, num_epochs):
+    print(f'Training began for {pathology} {orientation}')
 
     class_folder = '/groups/CS156b'
     preprocess_folder = f'{class_folder}/2024/Edgemax/preprocess'
-    sub_folder =  f'{preprocess_folder}/{pathology.replace(' ', '_')}/{orientation}'
-    train_data_path = f'{sub_folder}/train_data_{pathology.replace(' ', '_')}_{orientation}.pt'
-    train_labels_path = f'{sub_folder}/train_labels_{pathology.replace(' ', '_')}_{orientation}.pt'
-    model_path = f'{sub_folder}/model_{pathology.replace(' ', '_')}_{orientation}.pt'
+    preprocess_sub_folder =  f'{preprocess_folder}/{pathology.replace(' ', '_')}/{orientation}'
+    train_data_path = f'{preprocess_sub_folder}/train_data_{pathology.replace(' ', '_')}_{orientation}.pt'
+    train_labels_path = f'{preprocess_sub_folder}/train_labels_{pathology.replace(' ', '_')}_{orientation}.pt'
+    model_folder = f'{class_folder}/2024/Edgemax/model'
+    model_sub_folder = f'{model_folder}/{pathology.replace(' ', '_')}/{orientation}'
+    model_path = f'{model_sub_folder}/model_{pathology.replace(' ', '_')}_{orientation}.pt'
+    create_folder(model_sub_folder)
     
+
+    device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+    print(f'Device type: {device}')
+
+
     train_proportion = 0.8
-    batch_size = 64
-    learning_rate = 0.001
-    momentum = 0.9
-    num_epochs = 20
-
-    device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
-    print(f"Device type: {device}")
-
-
+    print('Loading training data')
     data = torch.load(train_data_path)
     labels = torch.load(train_labels_path)
+    print(f'Loaded {len(data)} training images')
     train_data = data[:int(train_proportion*len(data))]
     train_labels = labels[:int(train_proportion*len(labels))]
     val_data = data[int(train_proportion*len(data)):]
@@ -48,7 +57,7 @@ def main():
     val_dataset = XRayDataset(val_data, val_labels)
     val_dataloader = DataLoader(dataset=val_dataset, batch_size=batch_size, shuffle=True)
 
-
+    print('Initializing pre-trained model')
     model = resnet50(weights='ResNet50_Weights.DEFAULT')
     model.fc = nn.Sequential(nn.Linear(2048, 256),
                             nn.ReLU(), 
@@ -61,24 +70,72 @@ def main():
     optimizer = torch.optim.SGD(model.parameters(), lr=learning_rate, momentum=momentum)
 
 
+    best_val_loss = 4
+    val_loss_history = [best_val_loss]
+    base_patience = 3
+    patience = base_patience # Stop training when  model haven't improved for n epochs
+    print('Begin training')
     for epoch in range(num_epochs):
-        idx = 0
-        for inputs, labels in train_dataloader:
-            labels = labels.unsqueeze(1)
+        model.train()
+        for idx, (inputs, labels) in enumerate(train_dataloader):
             inputs, labels = inputs.to(device), labels.to(device)
-            if idx % max(1, len(train_dataloader) // 50) == 0:
-                print(".", end ="")
-            idx += 1
+            if idx % max(1, len(train_dataloader) // 10) == 0:
+                print('.', end ='')
             optimizer.zero_grad()
             outputs = model(inputs)
             loss = criterion(outputs, labels)
             loss.backward()
             optimizer.step()
+        print(f'Epoch {epoch+1}/{num_epochs}, Loss: {loss.item():.4f}', end ='')
+    
+        val_loss = 0
+        with torch.no_grad():
+            model.eval()
+            for idx, (images, labels) in enumerate(val_dataloader):
+                if idx % max(1, len(val_dataloader) // 10) == 0:
+                    print('.', end ='')
+                images, labels = images.to(device), labels.to(device)
+                outputs = model(images)
+                loss = criterion(outputs, labels)
+                val_loss += loss.item()
+        val_loss = val_loss / len(val_dataloader)
+        val_loss_history.append(val_loss)
+        print(f'Validation loss: {val_loss}')
+        
+        if val_loss < best_val_loss:
+            best_val_loss = val_loss
+            torch.save(model.state_dict(), model_path)
+        
+        if val_loss >= val_loss_history[epoch]:
+            patience -= 1
+        else:
+            patience = base_patience
 
-        print(f'Epoch {epoch+1}/{num_epochs}, Loss: {loss.item():.4f}')
+        if patience == 0:
+            print(f'Chosen model at epoch {epoch+1-base_patience}')
+            break
 
-    print(f'Finished Training')
-    torch.save(model.state_dict(), model_path)
+    print(f'Finished Training for {pathology} {orientation} with validation loss: {best_val_loss}')
+    
+
+def main():
+    pathologies = ['No Finding','Enlarged Cardiomediastinum','Cardiomegaly',
+                'Lung Opacity','Pneumonia','Pleural Effusion','Pleural Other',
+                'Fracture','Support Devices']
+    orientations = ['Frontal', 'Lateral']
+
+    batch_size = 128
+    learning_rate = 0.001
+    momentum = 0.9
+    num_epochs = 20
+
+    for pathology in pathologies:
+        for orientation in orientations:
+            train(pathology, orientation, batch_size, learning_rate, momentum, num_epochs)
+            print('')
+
+    print(f'Finished Training all models')
+
 
 if __name__ == '__main__':
     main()

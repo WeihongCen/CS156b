@@ -52,8 +52,8 @@ def main():
                     train_labels[i][j].append(label_tensor)
 
 
-    for pathology in pathologies:
-        for orientation in orientations:
+    for i, pathology in enumerate(pathologies):
+        for j, orientation in enumerate(orientations):
             print(f'Train data for: {pathology} {orientation}')
             sub_folder =  f'{preprocess_folder}/{pathology.replace(' ', '_')}/{orientation}'
             create_folder(sub_folder)
