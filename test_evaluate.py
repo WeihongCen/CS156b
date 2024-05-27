@@ -15,7 +15,6 @@ class_folder = '/groups/CS156b'
 group_folder = f'{class_folder}/2024/Edgemax'
 test_folder = f'{group_folder}/test'
 model_path = "/groups/CS156b/2024/Edgemax/model"
-n_epochs = 20
 
 def validate():
     device = torch.device("cuda:0" if torch.cuda.is_available() else "cpu")
@@ -43,16 +42,14 @@ def validate():
 
         test_dataloader = DataLoader(test_orientation_data, batch_size=1, shuffle=False)
 
-        for epoch in range(n_epochs):
-            print(f'Epoch {epoch+1}/{n_epochs}:', end='')
-            for idx, images in enumerate(test_dataloader):
-                labels_dict[test_orientation_ids[idx]] = [test_orientation_ids[idx]]
-                for pathology_model in orientation_models:
-                    pathology_model.eval()
-                    images = images.to(device)
-                    outputs = pathology_model(images)
-                    test_predicted = (torch.squeeze(outputs.data)).float().item()
-                    labels_dict[idx].append(test_predicted)
+        for idx, images in enumerate(test_dataloader):
+            labels_dict[test_orientation_ids[idx]] = [test_orientation_ids[idx]]
+            for pathology_model in orientation_models:
+                pathology_model.eval()
+                images = images.to(device)
+                outputs = pathology_model(images)
+                test_predicted = (torch.squeeze(outputs.data)).float().item()
+                labels_dict[idx].append(test_predicted)
 
         print(f'Finished Testing {orientation}.')
     write_to_csv(labels_dict)
