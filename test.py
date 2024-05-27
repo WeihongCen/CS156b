@@ -34,6 +34,7 @@ def main():
     ])
 
     # 0 = Frontal images, 1 = Lateral images
+    test_ids = [[], []]
     test_data = [[], []]
     for index, row in csv_test.iterrows():
         if index % max(1, len(csv_test) // 1000) == 0:
@@ -44,11 +45,14 @@ def main():
             image_tensor = transform(image)
             i = ('frontal' not in row['Path'])
             test_data[i].append(image_tensor)
+            test_ids[i].append(row['Id'])
 
     for i, orientation in enumerate(orientations):
         print(f'Saving {len(test_data[i])} images of orientation {orientation}')
-        test_processed_imgs_path = f'{test_folder}/test_{orientation}.pt'
+        test_processed_imgs_path = f'{test_folder}/test_{orientation}_imgs.pt'
         torch.save(test_data[i], test_processed_imgs_path)
+        test_processed_ids_path = f'{test_folder}/test_{orientation}_ids.pt'
+        torch.save(test_ids[i], test_processed_ids_path)
     
     print('Test preprocessing completed.')
 
