@@ -32,7 +32,7 @@ def train(pathology, orientation, batch_size, learning_rate, momentum, num_epoch
     preprocess_sub_folder =  f'{preprocess_folder}/{pathology.replace(' ', '_')}/{orientation}'
     train_data_path = f'{preprocess_sub_folder}/train_data_{pathology.replace(' ', '_')}_{orientation}.pt'
     train_labels_path = f'{preprocess_sub_folder}/train_labels_{pathology.replace(' ', '_')}_{orientation}.pt'
-    model_folder = f'{class_folder}/2024/Edgemax/model'
+    model_folder = f'{class_folder}/2024/Edgemax/model_comparison'
     model_sub_folder = f'{model_folder}/{pathology.replace(' ', '_')}/{orientation}'
     model_path = f'{model_sub_folder}/model_{pathology.replace(' ', '_')}_{orientation}.pt'
     create_folder(model_sub_folder)
@@ -73,7 +73,7 @@ def train(pathology, orientation, batch_size, learning_rate, momentum, num_epoch
     best_val_loss = 4
     best_epoch = 0
     val_loss_history = [best_val_loss]
-    base_patience = 3
+    base_patience = 2
     patience = base_patience # Stop training when the model hasn't improved for n epochs
     print('Begin training')
     for epoch in range(num_epochs):
@@ -121,20 +121,17 @@ def train(pathology, orientation, batch_size, learning_rate, momentum, num_epoch
     
 
 def main():
-    pathologies = ['No Finding','Enlarged Cardiomediastinum','Cardiomegaly',
-                'Lung Opacity','Pneumonia','Pleural Effusion','Pleural Other',
-                'Fracture','Support Devices']
-    orientations = ['Frontal', 'Lateral']
+    pathology = 'Enlarged Cardiomediastinum'
+    orientation = 'Frontal'
 
-    batch_size = 128
-    learning_rate = 0.001
-    momentum = 0.9
-    num_epochs = 20
+    batch_size = [32, 64, 128, 256]
+    learning_rate = [0.001, 0.003, 0.01]
+    momentum = [0.8, 0.9, 0.99]
+    num_epochs = 10
 
-    for pathology in pathologies:
-        for orientation in orientations:
-            train(pathology, orientation, batch_size, learning_rate, momentum, num_epochs)
-            print('')
+    
+    train(pathology, orientation, batch_size, learning_rate, momentum, num_epochs)
+    print('')
 
     print(f'Finished Training all models')
 
