@@ -43,13 +43,15 @@ def validate():
         test_dataloader = DataLoader(test_orientation_data, batch_size=1, shuffle=False)
 
         for idx, images in enumerate(test_dataloader):
+            if idx % max(1, len(test_dataloader) // 1000) == 0:
+                print(f"{round(idx / len(test_dataloader) * 100, 2)}% completed")
             labels_dict[test_orientation_ids[idx]] = [test_orientation_ids[idx]]
             for pathology_model in orientation_models:
                 pathology_model.eval()
                 images = images.to(device)
                 outputs = pathology_model(images)
                 test_predicted = (torch.squeeze(outputs.data)).float().item()
-                labels_dict[idx].append(test_predicted)
+                labels_dict[test_orientation_ids[idx]].append(test_predicted)
 
         print(f'Finished Testing {orientation}.')
     write_to_csv(labels_dict)
